@@ -1,11 +1,19 @@
 package cn.kkl.mall.service.impl;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
+
 import cn.kkl.mall.mapper.TbItemMapper;
+import cn.kkl.mall.pojo.EasyUIDataGridResult;
 import cn.kkl.mall.pojo.TbItem;
+import cn.kkl.mall.pojo.TbItemExample;
 import cn.kkl.mall.service.ItemService;
+import javassist.expr.NewArray;
 
 /**
  *item manager service
@@ -25,5 +33,22 @@ public class ItemServiceImpl implements ItemService {
 		TbItem item = itemMapper.selectByPrimaryKey(itemId);
 		return item;
 	}
+
+	/* 
+	 * get itemList and page
+	 */
+	@Override
+	public EasyUIDataGridResult getItemList(int page, int rows) {
+		TbItemExample example = new TbItemExample();
+		PageHelper.startPage(page, rows);
+		List<TbItem> list = itemMapper.selectByExample(example);
+		PageInfo<TbItem> pageInfo = new PageInfo<>(list);
+		EasyUIDataGridResult result = new EasyUIDataGridResult();
+		result.setRows(list);
+		result.setTotal(pageInfo.getTotal());
+		return result;
+	}
+	
+	
 
 }
