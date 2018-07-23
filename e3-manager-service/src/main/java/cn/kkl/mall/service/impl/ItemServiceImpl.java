@@ -74,7 +74,7 @@ public class ItemServiceImpl implements ItemService {
 		itemDesc.setItemDesc(desc);
 		itemDesc.setItemId(itemId);
 		itemDesc.setUpdated(date);
-		itemDescMapper.insertSelective(itemDesc);
+		itemDescMapper.insert(itemDesc);
 		return E3Result.ok();
 	}
 	
