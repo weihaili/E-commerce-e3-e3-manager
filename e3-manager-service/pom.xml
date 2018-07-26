@@ -75,6 +75,12 @@
 			<groupId>com.github.sgroschupf</groupId>
 			<artifactId>zkclient</artifactId>
 		</dependency>
+		<!-- activemq configuration -->
+		<dependency>
+			<groupId>org.apache.activemq</groupId>
+			<artifactId>activemq-all</artifactId>
+		</dependency>
+		
 	</dependencies>
 	<packaging>war</packaging>
 </project>
