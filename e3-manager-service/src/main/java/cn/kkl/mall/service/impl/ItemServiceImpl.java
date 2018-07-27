@@ -3,7 +3,18 @@ package cn.kkl.mall.service.impl;
 import java.util.Date;
 import java.util.List;
 
+import javax.annotation.Resource;
+import javax.jms.Destination;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.core.MessageCreator;
 import org.springframework.stereotype.Service;
 
 import com.github.pagehelper.PageHelper;
@@ -17,7 +28,9 @@ import cn.kkl.mall.pojo.TbItem;
 import cn.kkl.mall.pojo.TbItemDesc;
 import cn.kkl.mall.pojo.TbItemExample;
 import cn.kkl.mall.service.ItemService;
+import cn.kkl.mall.service.JedisClient;
 import cn.kkl.mall.utils.IDUtils;
+import cn.kkl.mall.utils.JsonUtils;
 import javassist.expr.NewArray;
 
 /**
@@ -32,13 +45,44 @@ public class ItemServiceImpl implements ItemService {
 	
 	@Autowired
 	private TbItemDescMapper itemDescMapper;
-
+	
+	@Autowired
+	private JmsTemplate jmsTemplate;
+	
+	@Resource
+	private Destination topicDestination;
+	
+	@Autowired
+	private JedisClient jedisClient;
+	
+	@Value("${ITEM_INFO}")
+	private String itemInfoCacheKey;
+	
+	@Value("ITEM_EXPIRE")
+	private Integer expireTimeLimit;
+	
 	/* 
 	 * query item depend on itemId 
 	 */
 	@Override
 	public TbItem getItemById(long itemId) {
+		try {
+			String string = jedisClient.get(itemInfoCacheKey+":"+itemId+":base");
+			if (StringUtils.isNotBlank(string)) {
+				TbItem pojo = JsonUtils.jsonToPojo(string, TbItem.class);
+				return pojo;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
 		TbItem item = itemMapper.selectByPrimaryKey(itemId);
+		try {
+			jedisClient.set(itemInfoCacheKey+":"+itemId+":base", JsonUtils.objectToJson(item));
+			jedisClient.expire(itemInfoCacheKey+":"+itemId+":base", expireTimeLimit);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		return item;
 	}
 
@@ -63,7 +107,7 @@ public class ItemServiceImpl implements ItemService {
 	@Override
 	public E3Result addItem(TbItem item, String desc) {
 		Date date = new Date();
-		long itemId = IDUtils.genItemId();
+		final long itemId = IDUtils.genItemId();
 		item.setCreated(date);
 		item.setId(itemId);
 		item.setStatus((byte) 1);
@@ -75,6 +119,15 @@ public class ItemServiceImpl implements ItemService {
 		itemDesc.setItemId(itemId);
 		itemDesc.setUpdated(date);
 		itemDescMapper.insert(itemDesc);
+		
+		//send item add message
+		jmsTemplate.send(topicDestination, new MessageCreator() {
+			@Override
+			public Message createMessage(Session session) throws JMSException {
+				TextMessage message = session.createTextMessage(itemId+"");
+				return message;
+			}
+		});
 		return E3Result.ok();
 	}
 	
